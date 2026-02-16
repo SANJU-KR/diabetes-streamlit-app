@@ -2,18 +2,29 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-# Load trained model
-model = joblib.load("diabetes_catboost_smote_v1.pkl")
-
+# ---------------- CONFIG ----------------
 st.set_page_config(page_title="Diabetes Prediction", layout="centered")
 
+# ---------------- LOAD MODEL (FIXED) ----------------
+@st.cache_resource
+def load_model():
+    return joblib.load("diabetes_catboost_smote_v1.pkl")
+
+model = load_model()
+
+# ---------------- UI ----------------
 st.title("🩺 Diabetes Prediction System")
 st.write("Enter patient details to predict diabetes risk")
 
 # -------- Inputs --------
 age = st.number_input("Age (years)", min_value=0, max_value=120, value=45)
-gender = st.selectbox("Gender", ["Male", "Female"])
-bmi = st.number_input("BMI (kg/m2)", min_value=10.0, max_value=60.0, value=27.5)
+
+gender = st.selectbox(
+    "Gender",
+    ["Male", "Female", "Transgender"]
+)
+
+bmi = st.number_input("BMI (kg/m²)", min_value=10.0, max_value=60.0, value=27.5)
 waist_to_hip = st.number_input("Waist to Hip Ratio", value=0.95)
 glucose = st.number_input("Blood Glucose Level (mg/dL)", min_value=50, max_value=400, value=160)
 hba1c = st.number_input("HbA1c Level (%)", min_value=3.0, max_value=15.0, value=6.8)
@@ -31,9 +42,14 @@ hypertension = st.radio("Hypertension (0/1)", [0, 1])
 heart_disease = st.radio("Heart Disease (0/1)", [0, 1])
 family = st.radio("Family History (0/1)", [0, 1])
 
-preg = st.number_input("Pregnancies", value=0)
+# -------- Pregnancy logic (IMPORTANT) --------
+if gender == "Female":
+    preg = st.number_input("Pregnancies", min_value=0, max_value=20, value=0)
+else:
+    preg = 0  # Auto set for Male / Other
+
 metabolic = st.slider("Metabolic Score (0–4)", 0, 4, 2)
-obesity_risk = st.number_input("Obesity Risk (kg/m2 × years)", value=1200)
+obesity_risk = st.number_input("Obesity Risk (kg/m² × years)", value=1200)
 sugar_load = st.number_input("Chronic Sugar Load (mg/dL × %)", value=1080)
 
 # -------- Prediction --------
@@ -63,4 +79,4 @@ if st.button("Predict Diabetes Risk"):
     }])
 
     prob = model.predict_proba(input_df)[0][1]
-    st.success(f"Diabetes Probability: {round(prob, 3)}")
+    st.success(f"🟢 Diabetes Probability: **{round(prob, 3)}**")
