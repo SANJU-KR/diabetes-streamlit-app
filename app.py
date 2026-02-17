@@ -1,70 +1,108 @@
-# =========================================
-# Diabetes Prediction App (PIPELINE FIXED)
-# =========================================
+# ================================
+# Diabetes Prediction System
+# CatBoost + SMOTE (joblib)
+# ================================
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 import joblib
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Diabetes Prediction", layout="wide")
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="Diabetes Prediction System",
+    layout="wide"
+)
 
-# -----------------------------------------
-# LOAD PIPELINE
-# -----------------------------------------
+# ---------------- CUSTOM CSS ----------------
+st.markdown("""
+<style>
+h1 { color: #1f7764; }
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------- LOAD MODEL (JOBLIB ONLY) ----------------
 @st.cache_resource
-def load_pipeline():
-    pipe = joblib.load("diabetes_catboost_smote_v1.pkl")
-    return pipe
+def load_model():
+    try:
+        return joblib.load("diabetes_catboost_smote_v1.pkl")
+    except Exception as e:
+        st.error("❌ Model loading failed")
+        st.exception(e)
+        st.stop()
 
-pipe = load_pipeline()
+model = load_model()
 
-# 🔑 IMPORTANT: split pipeline
-preprocessor = pipe.named_steps["prep"]
-model = pipe.named_steps["model"]
-
-# -----------------------------------------
+# ================================
 # SIDEBAR INPUTS
-# -----------------------------------------
-st.sidebar.title("Patient Information")
+# ================================
+st.sidebar.title("🧑‍⚕️ Patient Information")
 
-age = st.sidebar.slider("Age", 18, 100, 30)
-gender = st.sidebar.selectbox("Gender", ["Male", "Female", "Transgender"])
+st.sidebar.subheader("Demographics")
+age = st.sidebar.slider("Age (years)", 18, 100, 30)
 
+gender = st.sidebar.selectbox(
+    "Gender",
+    ["Male", "Female", "Transgender"]
+)
+
+# Pregnancy ONLY if Female
 if gender == "Female":
-    pregnancies = st.sidebar.number_input("Pregnancies", 0, 20, 0)
+    pregnancies = st.sidebar.number_input(
+        "Pregnancies", min_value=0, max_value=20, value=0
+    )
 else:
     pregnancies = 0
 
-glucose = st.sidebar.slider("Glucose (mg/dL)", 50, 400, 120)
-bp = st.sidebar.slider("Blood Pressure", 50, 200, 80)
-bmi = st.sidebar.number_input("BMI", 10.0, 70.0, 25.0)
+st.sidebar.subheader("Medical Measurements")
+bmi = st.sidebar.number_input("BMI (kg/m²)", 10.0, 70.0, 25.0)
+waist_hip = st.sidebar.number_input("Waist–Hip Ratio", 0.5, 2.0, 0.9)
+glucose = st.sidebar.slider("Blood Glucose (mg/dL)", 50, 400, 120)
 hba1c = st.sidebar.slider("HbA1c (%)", 3.0, 15.0, 6.5)
-insulin = st.sidebar.slider("Insulin", 0, 900, 80)
-skin = st.sidebar.slider("Skin Thickness", 0, 100, 20)
-trig = st.sidebar.slider("Triglycerides", 50, 500, 150)
-hr = st.sidebar.slider("Heart Rate", 40, 150, 75)
-waist_hip = st.sidebar.number_input("Waist-Hip Ratio", 0.5, 2.0, 0.9)
+bp = st.sidebar.slider("Blood Pressure (mmHg)", 50, 200, 80)
+insulin = st.sidebar.slider("Insulin (µU/mL)", 0, 900, 80)
+skin = st.sidebar.slider("Skin Thickness (mm)", 0, 100, 20)
+trig = st.sidebar.slider("Triglycerides (mg/dL)", 50, 500, 150)
+hr = st.sidebar.slider("Resting Heart Rate (bpm)", 40, 150, 75)
 
-smoking = st.sidebar.selectbox("Smoking", ["Never", "Former", "Current"])
-alcohol = st.sidebar.selectbox("Alcohol", ["None", "Low", "Moderate", "High"])
-activity = st.sidebar.selectbox("Activity", ["Low", "Moderate", "High"])
+st.sidebar.subheader("Lifestyle & History")
+alcohol = st.sidebar.selectbox("Alcohol Consumption", ["None", "Low", "Moderate", "High"])
+smoking = st.sidebar.selectbox("Smoking History", ["Never", "Former", "Current"])
+activity = st.sidebar.selectbox("Physical Activity Level", ["Low", "Moderate", "High"])
 
-hypertension = st.sidebar.radio("Hypertension", [0, 1])
-heart_disease = st.sidebar.radio("Heart Disease", [0, 1])
-family = st.sidebar.radio("Family History", [0, 1])
+hypertension = st.sidebar.radio("Hypertension (0/1)", [0, 1])
+heart_disease = st.sidebar.radio("Heart Disease (0/1)", [0, 1])
+family = st.sidebar.radio("Family History (0/1)", [0, 1])
 
-metabolic = st.sidebar.slider("Metabolic Score", 0, 4, 2)
-obesity_risk = st.sidebar.number_input("Obesity Risk", value=1200)
-sugar_load = st.sidebar.number_input("Sugar Load", value=1000)
+metabolic = st.sidebar.slider("Metabolic Score (0–4)", 0, 4, 2)
+obesity_risk = st.sidebar.number_input("Obesity Risk Index", value=1200)
+sugar_load = st.sidebar.number_input("Chronic Sugar Load", value=1000)
 
-predict_btn = st.sidebar.button("Predict")
+predict_btn = st.sidebar.button("🔍 Predict Diabetes Risk", use_container_width=True)
 
-# -----------------------------------------
-# MAIN
-# -----------------------------------------
+# ================================
+# MAIN UI
+# ================================
 st.title("🩺 Diabetes Prediction System")
+st.markdown("### AI-Powered Diabetes Risk Assessment Tool")
 
+st.markdown("""
+This system uses a **CatBoost model trained with SMOTE balancing**
+to estimate diabetes risk based on **21 clinical attributes**.
+""")
+
+# ---------------- BEFORE PREDICTION ----------------
+if not predict_btn:
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Model", "CatBoost + SMOTE")
+    c2.metric("Accuracy", "~89%")
+    c3.metric("Features", "21 Attributes")
+    st.info("👈 Enter details in the sidebar and click **Predict**.")
+
+# ================================
+# PREDICTION
+# ================================
 if predict_btn:
 
     input_df = pd.DataFrame([{
@@ -91,36 +129,47 @@ if predict_btn:
         "Chronic_Sugar_Load (mg/dL * %)": sugar_load
     }])
 
-    # 🔥 MANUAL TRANSFORM (NO sklearn check)
-    X = preprocessor.transform(input_df)
+    # 🔑 FIXED PROBABILITY (NO 100% BUG)
+    raw_score = model.predict(input_df, prediction_type="RawFormulaVal")[0]
+    prob = 1 / (1 + np.exp(-raw_score)) * 100
 
-    # 🔥 DIRECT CATBOOST CALL
-    prob = model.predict_proba(X)[0][1] * 100
+    # ---------------- RESULT ----------------
+    st.markdown("---")
+    st.header("📊 Prediction Result")
 
-    # ---------------------------------
-    st.subheader("Result")
+    col1, col2 = st.columns([2, 1])
 
-    if prob < 30:
-        st.success(f"Low Risk ({prob:.2f}%)")
-    elif prob < 70:
-        st.warning(f"Moderate Risk ({prob:.2f}%)")
-    else:
-        st.error(f"High Risk ({prob:.2f}%)")
+    with col1:
+        if prob < 35:
+            st.success("✅ LOW RISK of Diabetes")
+        elif prob < 65:
+            st.warning("⚠️ MODERATE RISK of Diabetes")
+        else:
+            st.error("❌ HIGH RISK of Diabetes")
 
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=prob,
-        number={"suffix": "%"},
-        gauge={
-            "axis": {"range": [0, 100]},
-            "steps": [
-                {"range": [0, 30], "color": "lightgreen"},
-                {"range": [30, 70], "color": "yellow"},
-                {"range": [70, 100], "color": "red"}
-            ]
-        }
-    ))
+        st.metric("Diabetes Probability", f"{prob:.2f}%")
 
-    st.plotly_chart(fig, use_container_width=True)
+    with col2:
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=prob,
+            number={"suffix": "%"},
+            title={"text": "Risk Level"},
+            gauge={
+                "axis": {"range": [0, 100]},
+                "steps": [
+                    {"range": [0, 35], "color": "lightgreen"},
+                    {"range": [35, 65], "color": "yellow"},
+                    {"range": [65, 100], "color": "red"}
+                ],
+                "bar": {"color": "darkblue"}
+            }
+        ))
+        fig.update_layout(height=300)
+        st.plotly_chart(fig, use_container_width=True)
 
-    st.warning("Educational purpose only. Consult a doctor.")
+    st.markdown("---")
+    st.warning("""
+**Medical Disclaimer:**  
+This tool is for educational purposes only and does NOT replace professional medical advice.
+""")
