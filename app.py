@@ -1,11 +1,11 @@
 # =========================================
 # Diabetes Prediction System (Streamlit)
-# CatBoost + SMOTE | Production Ready
+# Joblib Saved CatBoost + SMOTE Pipeline
 # =========================================
 
 import streamlit as st
 import pandas as pd
-from catboost import CatBoostClassifier
+import joblib
 import plotly.graph_objects as go
 
 # -----------------------------------------
@@ -31,13 +31,12 @@ h1 { color: #1f7764; }
 """, unsafe_allow_html=True)
 
 # -----------------------------------------
-# LOAD MODEL (SAFE + DEBUG FRIENDLY)
+# LOAD MODEL (JOBLIB - CORRECT FOR .PKL)
 # -----------------------------------------
 @st.cache_resource
 def load_model():
     try:
-        model = CatBoostClassifier()
-        model.load_model("diabetes_catboost_smote_v1.pkl")
+        model = joblib.load("diabetes_catboost_smote_v1.pkl")
         return model
     except Exception as e:
         st.error("❌ Model loading failed")
@@ -103,8 +102,9 @@ st.title("🩺 Diabetes Prediction System")
 st.markdown("### AI-Powered Diabetes Risk Assessment Tool")
 
 st.markdown("""
-This system uses a **CatBoost Machine Learning model trained with SMOTE**
-to estimate diabetes risk based on **21 clinical and lifestyle attributes**.
+This application uses a **CatBoost Machine Learning model**
+trained with **SMOTE** to estimate diabetes risk using
+**21 clinical and lifestyle attributes**.
 """)
 
 # -----------------------------------------
@@ -147,7 +147,7 @@ if predict_btn:
         "Chronic_Sugar_Load (mg/dL * %)": sugar_load
     }])
 
-    # Predict probability
+    # Predict probability (SAFE for pipeline)
     prob = model.predict_proba(input_df)[0][1] * 100
 
     st.markdown("---")
