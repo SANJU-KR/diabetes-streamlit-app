@@ -1,39 +1,54 @@
-# ================================
-# Diabetes Prediction System
-# CatBoost + SMOTE (Streamlit)
-# ================================
+# =========================================
+# Diabetes Prediction System (Streamlit)
+# CatBoost + SMOTE | Production Ready
+# =========================================
 
 import streamlit as st
 import pandas as pd
 from catboost import CatBoostClassifier
 import plotly.graph_objects as go
 
-# ---------------- CONFIG ----------------
+# -----------------------------------------
+# PAGE CONFIG
+# -----------------------------------------
 st.set_page_config(
     page_title="Diabetes Prediction System",
     layout="wide"
 )
 
-# ---------------- CUSTOM CSS ----------------
+# -----------------------------------------
+# CUSTOM CSS
+# -----------------------------------------
 st.markdown("""
 <style>
 h1 { color: #1f7764; }
-.sidebar .sidebar-content { padding: 1rem; }
+.stButton>button {
+    background-color: #1f7764;
+    color: white;
+    font-size: 16px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- LOAD MODEL (CORRECT WAY) ----------------
+# -----------------------------------------
+# LOAD MODEL (SAFE + DEBUG FRIENDLY)
+# -----------------------------------------
 @st.cache_resource
 def load_model():
-    model = CatBoostClassifier()
-    model.load_model("diabetes_catboost_smote_v1.pkl")
-    return model
+    try:
+        model = CatBoostClassifier()
+        model.load_model("diabetes_catboost_smote_v1.pkl")
+        return model
+    except Exception as e:
+        st.error("❌ Model loading failed")
+        st.exception(e)
+        st.stop()
 
 model = load_model()
 
-# ================================
+# =========================================
 # SIDEBAR INPUTS
-# ================================
+# =========================================
 st.sidebar.title("🧑‍⚕️ Patient Information")
 
 st.sidebar.subheader("Demographics")
@@ -44,7 +59,7 @@ gender = st.sidebar.selectbox(
     ["Male", "Female", "Transgender"]
 )
 
-# Pregnancy → ONLY if Female
+# Pregnancy only if Female
 if gender == "Female":
     pregnancies = st.sidebar.number_input(
         "Pregnancies",
@@ -76,34 +91,36 @@ heart_disease = st.sidebar.radio("Heart Disease (0/1)", [0, 1])
 family = st.sidebar.radio("Family History (0/1)", [0, 1])
 
 metabolic = st.sidebar.slider("Metabolic Score (0–4)", 0, 4, 2)
-obesity_risk = st.sidebar.number_input("Obesity Risk Index", value=1200)
-sugar_load = st.sidebar.number_input("Chronic Sugar Load", value=1000)
+obesity_risk = st.sidebar.number_input("Obesity Risk (kg/m² × years)", value=1200)
+sugar_load = st.sidebar.number_input("Chronic Sugar Load (mg/dL × %)", value=1000)
 
 predict_btn = st.sidebar.button("🔍 Predict Diabetes Risk", use_container_width=True)
 
-# ================================
+# =========================================
 # MAIN UI
-# ================================
+# =========================================
 st.title("🩺 Diabetes Prediction System")
 st.markdown("### AI-Powered Diabetes Risk Assessment Tool")
 
 st.markdown("""
-This application uses a **CatBoost Machine Learning model trained with SMOTE**
-to estimate the probability of diabetes using clinical and lifestyle parameters.
+This system uses a **CatBoost Machine Learning model trained with SMOTE**
+to estimate diabetes risk based on **21 clinical and lifestyle attributes**.
 """)
 
-# ---------------- BEFORE PREDICTION ----------------
+# -----------------------------------------
+# BEFORE PREDICTION
+# -----------------------------------------
 if not predict_btn:
     col1, col2, col3 = st.columns(3)
     col1.metric("Model", "CatBoost + SMOTE")
     col2.metric("Accuracy", "~89%")
-    col3.metric("Features", "21 Clinical Attributes")
+    col3.metric("Features", "21 Attributes")
 
-    st.info("👈 Enter patient details in the sidebar and click **Predict**.")
+    st.info("👈 Fill details from the sidebar and click **Predict**")
 
-# ================================
+# =========================================
 # PREDICTION
-# ================================
+# =========================================
 if predict_btn:
 
     input_df = pd.DataFrame([{
@@ -130,9 +147,9 @@ if predict_btn:
         "Chronic_Sugar_Load (mg/dL * %)": sugar_load
     }])
 
+    # Predict probability
     prob = model.predict_proba(input_df)[0][1] * 100
 
-    # ---------------- RESULT ----------------
     st.markdown("---")
     st.header("📊 Prediction Result")
 
@@ -169,6 +186,6 @@ if predict_btn:
 
     st.markdown("---")
     st.warning("""
-**Medical Disclaimer:**  
+**Medical Disclaimer**  
 This tool is for educational purposes only and does not replace professional medical advice.
 """)
