@@ -28,7 +28,7 @@ model = pipe.named_steps["model"]
 # -----------------------------------------
 st.sidebar.title("Patient Information")
 
-age = st.sidebar.slider("Age", 18, 100, 30)
+age = st.sidebar.slider("Age", 1, 100, 30)
 gender = st.sidebar.selectbox("Gender", ["Male", "Female", "Transgender"])
 
 if gender == "Female":
