@@ -1,5 +1,5 @@
 # =========================================
-# Diabetes Prediction System (STABLE)
+# Diabetes Prediction App (PIPELINE FIXED)
 # =========================================
 
 import streamlit as st
@@ -10,18 +10,18 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Diabetes Prediction", layout="wide")
 
 # -----------------------------------------
-# LOAD MODEL (joblib)
+# LOAD PIPELINE
 # -----------------------------------------
 @st.cache_resource
-def load_model():
-    try:
-        return joblib.load("diabetes_catboost_smote_v1.pkl")
-    except Exception as e:
-        st.error("❌ Model load failed")
-        st.exception(e)
-        st.stop()
+def load_pipeline():
+    pipe = joblib.load("diabetes_catboost_smote_v1.pkl")
+    return pipe
 
-model = load_model()
+pipe = load_pipeline()
+
+# 🔑 IMPORTANT: split pipeline
+preprocessor = pipe.named_steps["prep"]
+model = pipe.named_steps["model"]
 
 # -----------------------------------------
 # SIDEBAR INPUTS
@@ -91,14 +91,13 @@ if predict_btn:
         "Chronic_Sugar_Load (mg/dL * %)": sugar_load
     }])
 
-    # ---------- SAFE PREDICTION ----------
-    try:
-        prob = model.predict_proba(input_df)[0][1] * 100
-    except Exception:
-        pred = model.predict(input_df)[0]
-        prob = 100 if pred == 1 else 0
+    # 🔥 MANUAL TRANSFORM (NO sklearn check)
+    X = preprocessor.transform(input_df)
 
-    # ---------- OUTPUT ----------
+    # 🔥 DIRECT CATBOOST CALL
+    prob = model.predict_proba(X)[0][1] * 100
+
+    # ---------------------------------
     st.subheader("Result")
 
     if prob < 30:
@@ -121,6 +120,7 @@ if predict_btn:
             ]
         }
     ))
+
     st.plotly_chart(fig, use_container_width=True)
 
     st.warning("Educational purpose only. Consult a doctor.")
