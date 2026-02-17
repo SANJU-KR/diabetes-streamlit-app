@@ -1,13 +1,14 @@
-# ==========================================
-# Diabetes Prediction System (CatBoost + SMOTE)
-# ==========================================
+# ================================
+# Diabetes Prediction System
+# CatBoost + SMOTE (Streamlit)
+# ================================
 
 import streamlit as st
 import pandas as pd
-import joblib
+from catboost import CatBoostClassifier
 import plotly.graph_objects as go
 
-# ---------------- PAGE CONFIG ----------------
+# ---------------- CONFIG ----------------
 st.set_page_config(
     page_title="Diabetes Prediction System",
     layout="wide"
@@ -21,10 +22,12 @@ h1 { color: #1f7764; }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- LOAD MODEL ----------------
+# ---------------- LOAD MODEL (CORRECT WAY) ----------------
 @st.cache_resource
 def load_model():
-    return joblib.load("diabetes_catboost_smote_v1.pkl")
+    model = CatBoostClassifier()
+    model.load_model("diabetes_catboost_smote_v1.pkl")
+    return model
 
 model = load_model()
 
@@ -33,7 +36,6 @@ model = load_model()
 # ================================
 st.sidebar.title("🧑‍⚕️ Patient Information")
 
-# ---- Demographics ----
 st.sidebar.subheader("Demographics")
 age = st.sidebar.slider("Age (years)", 18, 100, 30)
 
@@ -42,7 +44,7 @@ gender = st.sidebar.selectbox(
     ["Male", "Female", "Transgender"]
 )
 
-# Pregnancy (ONLY if Female)
+# Pregnancy → ONLY if Female
 if gender == "Female":
     pregnancies = st.sidebar.number_input(
         "Pregnancies",
@@ -53,7 +55,6 @@ if gender == "Female":
 else:
     pregnancies = 0
 
-# ---- Medical Measurements ----
 st.sidebar.subheader("Medical Measurements")
 glucose = st.sidebar.slider("Blood Glucose (mg/dL)", 50, 400, 120)
 bp = st.sidebar.slider("Blood Pressure (mmHg)", 50, 200, 80)
@@ -63,21 +64,20 @@ bmi = st.sidebar.number_input("BMI (kg/m²)", 10.0, 70.0, 25.0)
 hba1c = st.sidebar.slider("HbA1c (%)", 3.0, 15.0, 6.5)
 trig = st.sidebar.slider("Triglycerides (mg/dL)", 50, 500, 150)
 hr = st.sidebar.slider("Resting Heart Rate (bpm)", 40, 150, 75)
-waist_hip = st.sidebar.number_input("Waist-Hip Ratio", 0.5, 2.0, 0.9)
+waist_hip = st.sidebar.number_input("Waist–Hip Ratio", 0.5, 2.0, 0.9)
 
-# ---- Lifestyle & History ----
 st.sidebar.subheader("Lifestyle & History")
 smoking = st.sidebar.selectbox("Smoking History", ["Never", "Former", "Current"])
 alcohol = st.sidebar.selectbox("Alcohol Consumption", ["None", "Low", "Moderate", "High"])
-activity = st.sidebar.selectbox("Physical Activity Level", ["Low", "Moderate", "High"])
+activity = st.sidebar.selectbox("Physical Activity", ["Low", "Moderate", "High"])
 
 hypertension = st.sidebar.radio("Hypertension (0/1)", [0, 1])
 heart_disease = st.sidebar.radio("Heart Disease (0/1)", [0, 1])
 family = st.sidebar.radio("Family History (0/1)", [0, 1])
 
 metabolic = st.sidebar.slider("Metabolic Score (0–4)", 0, 4, 2)
-obesity_risk = st.sidebar.number_input("Obesity Risk (kg/m² × years)", value=1200)
-sugar_load = st.sidebar.number_input("Chronic Sugar Load (mg/dL × %)", value=1000)
+obesity_risk = st.sidebar.number_input("Obesity Risk Index", value=1200)
+sugar_load = st.sidebar.number_input("Chronic Sugar Load", value=1000)
 
 predict_btn = st.sidebar.button("🔍 Predict Diabetes Risk", use_container_width=True)
 
@@ -88,16 +88,16 @@ st.title("🩺 Diabetes Prediction System")
 st.markdown("### AI-Powered Diabetes Risk Assessment Tool")
 
 st.markdown("""
-This system uses a **CatBoost Machine Learning model with SMOTE balancing**
-to predict the **probability of diabetes** using **21 clinical & lifestyle attributes**.
+This application uses a **CatBoost Machine Learning model trained with SMOTE**
+to estimate the probability of diabetes using clinical and lifestyle parameters.
 """)
 
-# ---- Before Prediction ----
+# ---------------- BEFORE PREDICTION ----------------
 if not predict_btn:
     col1, col2, col3 = st.columns(3)
     col1.metric("Model", "CatBoost + SMOTE")
     col2.metric("Accuracy", "~89%")
-    col3.metric("Features", "21 Attributes")
+    col3.metric("Features", "21 Clinical Attributes")
 
     st.info("👈 Enter patient details in the sidebar and click **Predict**.")
 
@@ -130,16 +130,9 @@ if predict_btn:
         "Chronic_Sugar_Load (mg/dL * %)": sugar_load
     }])
 
-    # ---- SAFE Prediction (Streamlit Cloud FIX) ----
-    try:
-        prob = model.predict_proba(input_df)[0][1] * 100
-    except Exception:
-        pred = model.predict(input_df)[0]
-        prob = 100 if pred == 1 else 0
+    prob = model.predict_proba(input_df)[0][1] * 100
 
-    # ================================
-    # RESULTS
-    # ================================
+    # ---------------- RESULT ----------------
     st.markdown("---")
     st.header("📊 Prediction Result")
 
@@ -177,5 +170,5 @@ if predict_btn:
     st.markdown("---")
     st.warning("""
 **Medical Disclaimer:**  
-This tool is for educational purposes only and does **NOT** replace professional medical advice.
+This tool is for educational purposes only and does not replace professional medical advice.
 """)
